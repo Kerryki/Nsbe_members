@@ -1,10 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getAuthUrl, handleCallback, loadOrAuthenticateClient } from './auth.js';
 import { appendMember, getAllMembers, getMemberByEmail, initializeSheet } from './googleSheets.js';
 import { validateMember } from './validation.js';
 import { logger } from './logger.js';
+import dashboardApi from './dashboardApi.js';
+import { initializeEventsSheet } from './dashboardSheets.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config();
 
@@ -20,6 +26,7 @@ app.use(cors({
   }
 }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const PORT = process.env.PORT || 3000;
 
@@ -83,6 +90,14 @@ app.get('/api/members/:email', async (req, res) => {
   }
 });
 
+// Dashboard route
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
+// Dashboard API routes
+app.use('/dashboard/api', dashboardApi);
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -92,9 +107,11 @@ app.get('/health', (req, res) => {
   try {
     loadOrAuthenticateClient();
     await initializeSheet();
+    await initializeEventsSheet();
     app.listen(PORT, () => {
       logger.info(`Server running at http://localhost:${PORT}`);
       logger.info(`Authorize at http://localhost:${PORT}/auth`);
+      logger.info(`Dashboard at http://localhost:${PORT}/dashboard`);
     });
   } catch (err) {
     logger.error('Startup error', err);
