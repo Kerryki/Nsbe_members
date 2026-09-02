@@ -1,0 +1,24 @@
+{
+  "name": "member-management-system",
+  "version": "0.1.0",
+  "description": "Member management system with Google Form intake, admin dashboard, event tracking, and newsletters",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "googleapis": "^118.0.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "sinon": "^17.0.1"
+  }
+}
