@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newsletters & Job Postings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 8px; padding: 24px; }
+    h1 { color: #333; margin-bottom: 24px; }
+    h2 { color: #333; margin-top: 24px; margin-bottom: 16px; font-size: 18px; }
+    .section { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid #eee; }
+    .section:last-child { border-bottom: none; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; }
+    input[type="text"], input[type="date"], select, textarea { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; font-family: inherit; }
+    textarea { min-height: 100px; resize: vertical; }
+    button { padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-top: 8px; }
+    button:hover { background: #0052a3; }
+    .card { border: 1px solid #ddd; border-radius: 4px; padding: 16px; margin-bottom: 12px; }
+    .card h3 { color: #333; margin-bottom: 8px; font-size: 16px; }
+    .card p { color: #666; margin-bottom: 4px; font-size: 14px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .tag { background: #e0e0e0; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+    .error { color: #cc0000; padding: 12px; background: #ffe6e6; border-radius: 4px; margin-bottom: 16px; }
+    .success { color: #28a745; padding: 12px; background: #e8f5e9; border-radius: 4px; margin-bottom: 16px; }
+    .tab-buttons { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab-buttons button { margin: 0; }
+    .tab-buttons button.active { background: #0052a3; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Newsletters & Job Postings</h1>
+    <div id="message"></div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-buttons">
+      <button class="active" onclick="switchTab('newsletters')">Newsletters</button>
+      <button onclick="switchTab('jobs')">Job Postings</button>
+    </div>
+
+    <!-- Newsletters Tab -->
+    <div id="newsletters" class="tab-content active">
+      <div class="section">
+        <h2>Create Newsletter</h2>
+        <form onsubmit="createNewsletter(event)">
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="nlSubject" required>
+          </div>
+          <div class="form-group">
+            <label>Content</label>
+            <textarea id="nlContent" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Date Sent</label>
+            <input type="date" id="nlDate" required>
+          </div>
+          <button type="submit">Send Newsletter</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>Newsletter History</h2>
+        <div id="newslettersList"></div>
+      </div>
+    </div>
+
+    <!-- Jobs Tab -->
+    <div id="jobs" class="tab-content">
+      <div class="section">
+        <h2>Post a Job</h2>
+        <form onsubmit="createJob(event)">
+          <div class="form-group">
+            <label>Job Title</label>
+            <input type="text" id="jobTitle" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="jobDesc" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Tags (comma-separated)</label>
+            <input type="text" id="jobTags" placeholder="e.g., backend, frontend, senior">
+          </div>
+          <div class="form-group">
+            <label>Date Posted</label>
+            <input type="date" id="jobDate" required>
+          </div>
+          <button type="submit">Post Job</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>Job Postings</h2>
+        <div class="form-group">
+          <label>Filter by Tag (optional)</label>
+          <input type="text" id="jobTagFilter" placeholder="Enter tag">
+          <button type="button" onclick="filterJobs()">Filter</button>
+          <button type="button" onclick="loadJobs()">Clear</button>
+        </div>
+        <div id="jobsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/newsletter';
+
+    function switchTab(tab) {
+      // Hide all tabs
+      document.getElementById('newsletters').classList.remove('active');
+      document.getElementById('jobs').classList.remove('active');
+
+      // Show selected tab
+      document.getElementById(tab).classList.add('active');
+
+      // Update button styling
+      document.querySelectorAll('.tab-buttons button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Load data for selected tab
+      if (tab === 'newsletters') {
+        loadNewsletters();
+      } else {
+        loadJobs();
+      }
+    }
+
+    async function createNewsletter(e) {
+      e.preventDefault();
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const data = {
+          subject: document.getElementById('nlSubject').value,
+          content: document.getElementById('nlContent').value,
+          sentDate: document.getElementById('nlDate').value || today,
+        };
+
+        const res = await fetch(`${API_BASE}/newsletters`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to send newsletter');
+        }
+
+        showMessage('Newsletter sent successfully', 'success');
+        document.getElementById('nlSubject').value = '';
+        document.getElementById('nlContent').value = '';
+        loadNewsletters();
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function loadNewsletters() {
+      try {
+        const res = await fetch(`${API_BASE}/newsletters`);
+        if (!res.ok) throw new Error('Failed to load newsletters');
+
+        const newsletters = await res.json();
+        const container = document.getElementById('newslettersList');
+        container.innerHTML = '';
+
+        if (newsletters.length === 0) {
+          container.innerHTML = '<p>No newsletters sent yet.</p>';
+          return;
+        }
+
+        newsletters.forEach(nl => {
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          const titleEl = document.createElement('h3');
+          titleEl.textContent = nl.subject;
+
+          const dateEl = document.createElement('p');
+          dateEl.textContent = `Sent: ${nl.sentDate}`;
+
+          const contentEl = document.createElement('p');
+          contentEl.textContent = nl.content;
+
+          const countEl = document.createElement('p');
+          countEl.textContent = `Recipients: ${nl.recipientCount}`;
+
+          card.appendChild(titleEl);
+          card.appendChild(dateEl);
+          card.appendChild(contentEl);
+          card.appendChild(countEl);
+          container.appendChild(card);
+        });
+      } catch (err) {
+        showMessage(`Error loading newsletters: ${err.message}`, 'error');
+      }
+    }
+
+    async function createJob(e) {
+      e.preventDefault();
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const data = {
+          title: document.getElementById('jobTitle').value,
+          description: document.getElementById('jobDesc').value,
+          tags: document.getElementById('jobTags').value,
+          postedDate: document.getElementById('jobDate').value || today,
+        };
+
+        const res = await fetch(`${API_BASE}/jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to post job');
+        }
+
+        showMessage('Job posted successfully', 'success');
+        document.getElementById('jobTitle').value = '';
+        document.getElementById('jobDesc').value = '';
+        document.getElementById('jobTags').value = '';
+        loadJobs();
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function filterJobs() {
+      try {
+        const tag = document.getElementById('jobTagFilter').value;
+        const params = new URLSearchParams();
+        if (tag) params.append('tag', tag);
+
+        const res = await fetch(`${API_BASE}/jobs?${params}`);
+        if (!res.ok) throw new Error('Failed to load jobs');
+
+        const jobs = await res.json();
+        displayJobs(jobs);
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function loadJobs() {
+      try {
+        const res = await fetch(`${API_BASE}/jobs`);
+        if (!res.ok) throw new Error('Failed to load jobs');
+
+        const jobs = await res.json();
+        displayJobs(jobs);
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    function displayJobs(jobs) {
+      const container = document.getElementById('jobsList');
+      container.innerHTML = '';
+
+      if (jobs.length === 0) {
+        container.innerHTML = '<p>No job postings found.</p>';
+        return;
+      }
+
+      jobs.forEach(job => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = job.title;
+
+        const dateEl = document.createElement('p');
+        dateEl.textContent = `Posted: ${job.postedDate}`;
+
+        const descEl = document.createElement('p');
+        descEl.textContent = job.description;
+
+        const tagsDiv = document.createElement('div');
+        tagsDiv.className = 'tags';
+        job.tags.forEach(tag => {
+          const tagEl = document.createElement('span');
+          tagEl.className = 'tag';
+          tagEl.textContent = tag;
+          tagsDiv.appendChild(tagEl);
+        });
+
+        card.appendChild(titleEl);
+        card.appendChild(dateEl);
+        card.appendChild(descEl);
+        if (job.tags.length > 0) card.appendChild(tagsDiv);
+        container.appendChild(card);
+      });
+    }
+
+    function showMessage(msg, type) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.className = type;
+      setTimeout(() => { el.textContent = ''; el.className = ''; }, 5000);
+    }
+
+    // Load on page load
+    window.onload = () => {
+      loadNewsletters();
+      // Set today's date as default
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('nlDate').value = today;
+      document.getElementById('jobDate').value = today;
+    };
+  </script>
+</body>
+</html>

@@ -10,8 +10,10 @@ import { validateMember } from './validation.js';
 import { logger } from './logger.js';
 import dashboardApi from './dashboardApi.js';
 import attendanceApi from './attendanceApi.js';
+import newsletterApi from './newsletterApi.js';
 import { initializeEventsSheet } from './dashboardSheets.js';
 import { initializeAttendanceSheet } from './attendanceSheets.js';
+import { initializeNewsletterSheet, initializeJobsSheet } from './newsletterSheets.js';
 import { setVPSession } from './dashboardAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -117,11 +119,19 @@ app.get('/attendance', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'attendance.html'));
 });
 
+// Newsletter route
+app.get('/newsletter', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'newsletter.html'));
+});
+
 // Dashboard API routes
 app.use('/dashboard/api', dashboardApi);
 
 // Attendance API routes
 app.use('/attendance', attendanceApi);
+
+// Newsletter API routes
+app.use('/newsletter', newsletterApi);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -134,11 +144,14 @@ app.get('/health', (req, res) => {
     await initializeSheet();
     await initializeEventsSheet();
     await initializeAttendanceSheet();
+    await initializeNewsletterSheet();
+    await initializeJobsSheet();
     app.listen(PORT, () => {
       logger.info(`Server running at http://localhost:${PORT}`);
       logger.info(`Authorize at http://localhost:${PORT}/auth`);
       logger.info(`Dashboard at http://localhost:${PORT}/dashboard`);
       logger.info(`Attendance at http://localhost:${PORT}/attendance`);
+      logger.info(`Newsletters at http://localhost:${PORT}/newsletter`);
     });
   } catch (err) {
     logger.error('Startup error', err);
