@@ -197,10 +197,17 @@
 
           const box = document.createElement('div');
           box.className = 'stat-box';
-          box.innerHTML = `
-            <div class="stat-value">${stats.attended}/${stats.total}</div>
-            <div class="stat-label">${event} (${stats.percentage}%)</div>
-          `;
+
+          const valueDiv = document.createElement('div');
+          valueDiv.className = 'stat-value';
+          valueDiv.textContent = `${stats.attended}/${stats.total}`;
+
+          const labelDiv = document.createElement('div');
+          labelDiv.className = 'stat-label';
+          labelDiv.textContent = `${event} (${stats.percentage}%)`;
+
+          box.appendChild(valueDiv);
+          box.appendChild(labelDiv);
           container.appendChild(box);
         }
       } catch (err) {
