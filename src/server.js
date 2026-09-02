@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import session from 'express-session';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getAuthUrl, handleCallback, loadOrAuthenticateClient } from './auth.js';
@@ -9,6 +10,7 @@ import { validateMember } from './validation.js';
 import { logger } from './logger.js';
 import dashboardApi from './dashboardApi.js';
 import { initializeEventsSheet } from './dashboardSheets.js';
+import { setVPSession } from './dashboardAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +18,19 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+
+// Session middleware for dashboard auth
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    httpOnly: true, // Prevent JS access to cookie
+    sameSite: 'strict' // CSRF protection
+  }
+}));
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {

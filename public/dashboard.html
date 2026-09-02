@@ -158,26 +158,38 @@
         if (search) params.append('search', search);
         if (status) params.append('status', status);
 
-        const res = await fetch(`${API_BASE}/members?${params}`, {
-          headers: { 'x-user-email': 'placeholder' } // ponytail: client-side placeholder; real OAuth integration in Phase 3
-        });
+        const res = await fetch(`${API_BASE}/members?${params}`);
         if (!res.ok) throw new Error('Failed to load members');
 
         const members = await res.json();
         const tbody = document.getElementById('membersTable');
-        tbody.innerHTML = members.map(m => `
-          <tr>
-            <td>${m.name}</td>
-            <td>${m.email}</td>
-            <td>${m.phone || '-'}</td>
-            <td>${m.dateJoined}</td>
-            <td>${m.status}</td>
-            <td>
-              <button onclick="editMember('${m.email}')">Edit</button>
-              <button class="danger" onclick="deleteMemberConfirm('${m.email}')">Delete</button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = ''; // Clear existing rows
+
+        members.forEach(m => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td></td><td></td><td></td><td></td><td></td><td></td>`;
+
+          const cells = row.querySelectorAll('td');
+          cells[0].textContent = m.name;
+          cells[1].textContent = m.email;
+          cells[2].textContent = m.phone || '-';
+          cells[3].textContent = m.dateJoined;
+          cells[4].textContent = m.status;
+
+          const actionCell = cells[5];
+          actionCell.innerHTML = '';
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Edit';
+          editBtn.onclick = () => editMember(m.email);
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'danger';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.onclick = () => deleteMemberConfirm(m.email);
+          actionCell.appendChild(editBtn);
+          actionCell.appendChild(deleteBtn);
+
+          tbody.appendChild(row);
+        });
       } catch (err) {
         showMessage(`Error: ${err.message}`, 'error');
       }
@@ -185,20 +197,27 @@
 
     async function loadEvents() {
       try {
-        const res = await fetch(`${API_BASE}/events`, {
-          headers: { 'x-user-email': 'placeholder' }
-        });
+        const res = await fetch(`${API_BASE}/events`);
         if (!res.ok) throw new Error('Failed to load events');
 
         const events = await res.json();
         const tbody = document.getElementById('eventsTable');
-        tbody.innerHTML = events.map(e => `
-          <tr>
-            <td>${e.name}</td>
-            <td>${e.date}</td>
-            <td>${e.description || '-'}</td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = '';
+
+        events.forEach(e => {
+          const row = document.createElement('tr');
+          const nameCell = document.createElement('td');
+          nameCell.textContent = e.name;
+          const dateCell = document.createElement('td');
+          dateCell.textContent = e.date;
+          const descCell = document.createElement('td');
+          descCell.textContent = e.description || '-';
+
+          row.appendChild(nameCell);
+          row.appendChild(dateCell);
+          row.appendChild(descCell);
+          tbody.appendChild(row);
+        });
       } catch (err) {
         showMessage(`Error: ${err.message}`, 'error');
       }
@@ -242,7 +261,7 @@
         if (editingEmail) {
           const res = await fetch(`${API_BASE}/members/${editingEmail}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'x-user-email': 'placeholder' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
           if (!res.ok) throw new Error('Failed to update member');
@@ -260,8 +279,7 @@
       if (!confirm(`Delete member ${email}?`)) return;
       try {
         const res = await fetch(`${API_BASE}/members/${email}`, {
-          method: 'DELETE',
-          headers: { 'x-user-email': 'placeholder' }
+          method: 'DELETE'
         });
         if (!res.ok) throw new Error('Failed to delete member');
         showMessage('Member deleted', 'success');
@@ -293,7 +311,7 @@
 
         const res = await fetch(`${API_BASE}/events`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-email': 'placeholder' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
         if (!res.ok) throw new Error('Failed to add event');
