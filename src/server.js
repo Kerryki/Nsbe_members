@@ -3,11 +3,22 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { getAuthUrl, handleCallback, loadOrAuthenticateClient } from './auth.js';
 import { appendMember, getAllMembers, getMemberByEmail, initializeSheet } from './googleSheets.js';
+import { validateMember } from './validation.js';
+import { logger } from './logger.js';
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed'));
+    }
+  }
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -24,23 +35,28 @@ app.get('/auth/callback', async (req, res) => {
   }
   try {
     await handleCallback(code);
+    logger.info('OAuth callback successful');
     res.send('Authorization successful! You can close this window.');
   } catch (err) {
-    res.status(500).send(`Auth failed: ${err.message}`);
+    logger.error('OAuth callback failed', err);
+    res.status(500).send('Authorization failed');
   }
 });
 
 // API endpoints
 app.post('/api/members', async (req, res) => {
   try {
-    const { name, email, phone, dateJoined, status } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email required' });
-    }
-    await appendMember({ name, email, phone: phone || '', dateJoined: dateJoined || new Date().toISOString().split('T')[0], status: status || 'Active' });
+    const data = validateMember({
+      ...req.body,
+      dateJoined: req.body.dateJoined || new Date().toISOString().split('T')[0],
+    });
+    await appendMember(data);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
+    res.status(500).json({ error: 'Failed to add member' });
   }
 });
 
@@ -49,7 +65,8 @@ app.get('/api/members', async (req, res) => {
     const members = await getAllMembers();
     res.json(members);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error('Failed to fetch members', err);
+    res.status(500).json({ error: 'Failed to fetch members' });
   }
 });
 
@@ -61,7 +78,8 @@ app.get('/api/members/:email', async (req, res) => {
     }
     res.json(member);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error('Failed to fetch member', err);
+    res.status(500).json({ error: 'Failed to fetch member' });
   }
 });
 
@@ -75,11 +93,11 @@ app.get('/health', (req, res) => {
     loadOrAuthenticateClient();
     await initializeSheet();
     app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-      console.log(`Authorize at http://localhost:${PORT}/auth`);
+      logger.info(`Server running at http://localhost:${PORT}`);
+      logger.info(`Authorize at http://localhost:${PORT}/auth`);
     });
   } catch (err) {
-    console.error('Startup error:', err.message);
+    logger.error('Startup error', err);
     process.exit(1);
   }
 })();

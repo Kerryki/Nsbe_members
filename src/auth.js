@@ -16,6 +16,10 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
 
+/**
+ * Get the OAuth authorization URL for user login
+ * @returns {string}
+ */
 export function getAuthUrl() {
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -23,13 +27,25 @@ export function getAuthUrl() {
   });
 }
 
+/**
+ * Handle OAuth callback and persist tokens
+ * @param {string} code - Authorization code from Google
+ * @returns {Promise<Object>} OAuth tokens
+ */
 export async function handleCallback(code) {
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
-  fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+  // ponytail: tokens stored in token.json for dev; production should use secure storage (e.g., encrypted env vars or secret manager)
+  if (process.env.NODE_ENV !== 'production') {
+    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+  }
   return tokens;
 }
 
+/**
+ * Load cached tokens or initialize client without auth
+ * @returns {Object} OAuth2 client
+ */
 export function loadOrAuthenticateClient() {
   if (fs.existsSync(TOKEN_PATH)) {
     const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
@@ -38,6 +54,10 @@ export function loadOrAuthenticateClient() {
   return oauth2Client;
 }
 
+/**
+ * Get the current OAuth client
+ * @returns {Object} OAuth2 client
+ */
 export function getClient() {
   return oauth2Client;
 }
