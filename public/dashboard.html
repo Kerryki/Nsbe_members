@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VP Dashboard - Member Management</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; padding: 24px; }
+    h1, h2 { color: #333; margin-top: 24px; margin-bottom: 12px; }
+    h1 { margin-top: 0; }
+    .section { margin-bottom: 32px; }
+    .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    input[type="text"], input[type="email"], input[type="date"], select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    button { padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0052a3; }
+    button.danger { background: #cc0000; }
+    button.danger:hover { background: #990000; }
+    button.export { background: #28a745; }
+    button.export:hover { background: #218838; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #f9f9f9; font-weight: 600; }
+    tr:hover { background: #f9f9f9; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.open { display: flex; }
+    .modal-content { background: white; border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; }
+    .modal-content h3 { margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+    .error { color: #cc0000; padding: 12px; background: #ffe6e6; border-radius: 4px; margin-bottom: 16px; }
+    .success { color: #28a745; padding: 12px; background: #e8f5e9; border-radius: 4px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Member Management Dashboard</h1>
+    <div id="message"></div>
+
+    <!-- Members Section -->
+    <div class="section">
+      <h2>Members</h2>
+      <div class="search-bar">
+        <input type="text" id="memberSearch" placeholder="Search by name or email...">
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+          <option value="Pending">Pending</option>
+        </select>
+        <button onclick="loadMembers()">Search</button>
+        <button class="export" onclick="exportMembers()">Export CSV</button>
+        <button onclick="openMemberModal()">Add Member</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Date Joined</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="membersTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Events Section -->
+    <div class="section">
+      <h2>Events</h2>
+      <div class="search-bar">
+        <button onclick="openEventModal()">Add Event</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Event Name</th>
+            <th>Date</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="eventsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Edit Member Modal -->
+  <div id="memberModal" class="modal">
+    <div class="modal-content">
+      <h3 id="memberModalTitle">Add Member</h3>
+      <form onsubmit="saveMember(event)">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="memberName" required>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="memberEmail" required>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="memberPhone">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="memberStatus">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Pending">Pending</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="button" onclick="closeMemberModal()">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Event Modal -->
+  <div id="eventModal" class="modal">
+    <div class="modal-content">
+      <h3>Add Event</h3>
+      <form onsubmit="saveEvent(event)">
+        <div class="form-group">
+          <label>Event Name</label>
+          <input type="text" id="eventName" required>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="eventDate" required>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="eventDescription">
+        </div>
+        <div class="form-actions">
+          <button type="button" onclick="closeEventModal()">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/dashboard/api';
+    let editingEmail = null;
+
+    async function loadMembers() {
+      try {
+        const search = document.getElementById('memberSearch').value;
+        const status = document.getElementById('statusFilter').value;
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('status', status);
+
+        const res = await fetch(`${API_BASE}/members?${params}`, {
+          headers: { 'x-user-email': 'placeholder' } // ponytail: client-side placeholder; real OAuth integration in Phase 3
+        });
+        if (!res.ok) throw new Error('Failed to load members');
+
+        const members = await res.json();
+        const tbody = document.getElementById('membersTable');
+        tbody.innerHTML = members.map(m => `
+          <tr>
+            <td>${m.name}</td>
+            <td>${m.email}</td>
+            <td>${m.phone || '-'}</td>
+            <td>${m.dateJoined}</td>
+            <td>${m.status}</td>
+            <td>
+              <button onclick="editMember('${m.email}')">Edit</button>
+              <button class="danger" onclick="deleteMemberConfirm('${m.email}')">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function loadEvents() {
+      try {
+        const res = await fetch(`${API_BASE}/events`, {
+          headers: { 'x-user-email': 'placeholder' }
+        });
+        if (!res.ok) throw new Error('Failed to load events');
+
+        const events = await res.json();
+        const tbody = document.getElementById('eventsTable');
+        tbody.innerHTML = events.map(e => `
+          <tr>
+            <td>${e.name}</td>
+            <td>${e.date}</td>
+            <td>${e.description || '-'}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function exportMembers() {
+      window.location.href = `${API_BASE}/export`;
+    }
+
+    function openMemberModal() {
+      editingEmail = null;
+      document.getElementById('memberModalTitle').textContent = 'Add Member';
+      document.getElementById('memberName').value = '';
+      document.getElementById('memberEmail').value = '';
+      document.getElementById('memberPhone').value = '';
+      document.getElementById('memberStatus').value = 'Active';
+      document.getElementById('memberModal').classList.add('open');
+    }
+
+    function closeMemberModal() {
+      document.getElementById('memberModal').classList.remove('open');
+    }
+
+    async function editMember(email) {
+      editingEmail = email;
+      document.getElementById('memberModalTitle').textContent = 'Edit Member';
+      document.getElementById('memberEmail').value = email;
+      document.getElementById('memberEmail').disabled = true;
+      document.getElementById('memberModal').classList.add('open');
+    }
+
+    async function saveMember(e) {
+      e.preventDefault();
+      try {
+        const data = {
+          name: document.getElementById('memberName').value,
+          phone: document.getElementById('memberPhone').value,
+          status: document.getElementById('memberStatus').value,
+        };
+
+        if (editingEmail) {
+          const res = await fetch(`${API_BASE}/members/${editingEmail}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-user-email': 'placeholder' },
+            body: JSON.stringify(data)
+          });
+          if (!res.ok) throw new Error('Failed to update member');
+        }
+
+        showMessage('Member saved successfully', 'success');
+        closeMemberModal();
+        loadMembers();
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function deleteMemberConfirm(email) {
+      if (!confirm(`Delete member ${email}?`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/members/${email}`, {
+          method: 'DELETE',
+          headers: { 'x-user-email': 'placeholder' }
+        });
+        if (!res.ok) throw new Error('Failed to delete member');
+        showMessage('Member deleted', 'success');
+        loadMembers();
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    function openEventModal() {
+      document.getElementById('eventName').value = '';
+      document.getElementById('eventDate').value = '';
+      document.getElementById('eventDescription').value = '';
+      document.getElementById('eventModal').classList.add('open');
+    }
+
+    function closeEventModal() {
+      document.getElementById('eventModal').classList.remove('open');
+    }
+
+    async function saveEvent(e) {
+      e.preventDefault();
+      try {
+        const data = {
+          name: document.getElementById('eventName').value,
+          date: document.getElementById('eventDate').value,
+          description: document.getElementById('eventDescription').value,
+        };
+
+        const res = await fetch(`${API_BASE}/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-email': 'placeholder' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to add event');
+
+        showMessage('Event added successfully', 'success');
+        closeEventModal();
+        loadEvents();
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    function showMessage(msg, type) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.className = type;
+      setTimeout(() => { el.textContent = ''; el.className = ''; }, 5000);
+    }
+
+    // Load on page load
+    window.onload = () => {
+      loadMembers();
+      loadEvents();
+    };
+  </script>
+</body>
+</html>
