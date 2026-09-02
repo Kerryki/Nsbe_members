@@ -42,5 +42,22 @@
   - Input validation via Zod schemas
   - Secure cookies (httpOnly, sameSite=strict)
 
+## Phase 3: Event Attendance Tracking
+- **Status**: CLEAN ✓
+- **Files**: src/attendanceSheets.js, src/attendanceApi.js, public/attendance.html
+- **Exports**: `recordAttendance(data)`, `getAttendance(email?)`, `getEventStats(eventName)`, `initializeAttendanceSheet()`
+- **Key Routes**:
+  - GET /attendance - Attendance tracker UI
+  - GET /attendance/records (VP only) - fetch records with optional email filter
+  - POST /attendance/mark (VP only) - record attendance
+  - GET /attendance/stats/:eventName - event stats
+  - GET /attendance/form - form data (events + members)
+- **Security**:
+  - Session-based auth on /records and /mark endpoints
+  - Zod validation on attendance data (email, eventName, date, attended)
+  - Event name validation (length 0-255)
+  - XSS prevention (textContent for dynamic content)
+  - Input sanitization on all endpoints
+
 ---
 
