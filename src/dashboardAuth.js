@@ -1,4 +1,3 @@
-import { getClient } from './auth.js';
 import { logger } from './logger.js';
 
 const VP_EMAIL = process.env.VP_EMAIL;
@@ -8,23 +7,41 @@ if (!VP_EMAIL) {
 }
 
 /**
- * Middleware to verify request is from VP's OAuth token
- * In production, extract user email from OAuth token; here simplified for demo
+ * Middleware to verify request is from authenticated VP
+ * Checks session token stored in secure cookie (set by /auth/callback)
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ * @param {Function} next - Next middleware
  */
 export function verifyVP(req, res, next) {
-  // ponytail: simplified check; production should validate OAuth token and extract email
-  const userEmail = req.headers['x-user-email'];
+  // ponytail: session-based auth; VP email validated at /auth/callback and stored in session
+  const vpEmail = req.session?.vpEmail;
 
-  if (!userEmail || userEmail.toLowerCase() !== VP_EMAIL.toLowerCase()) {
-    logger.warn(`Unauthorized dashboard access attempt: ${userEmail}`);
+  if (!vpEmail || vpEmail.toLowerCase() !== VP_EMAIL.toLowerCase()) {
+    logger.warn(`Unauthorized dashboard access: session=${vpEmail || 'none'}`);
     return res.status(403).json({ error: 'Unauthorized' });
   }
   next();
 }
 
 /**
- * Get VP dashboard access URL - shows which email can access
+ * Get VP email from environment
+ * @returns {string}
  */
 export function getVPEmail() {
   return VP_EMAIL;
+}
+
+/**
+ * Set VP session after successful OAuth
+ * @param {Object} req - Express request
+ * @param {string} userEmail - User email from OAuth provider
+ * @returns {boolean} True if user is VP
+ */
+export function setVPSession(req, userEmail) {
+  if (userEmail.toLowerCase() === VP_EMAIL.toLowerCase()) {
+    req.session.vpEmail = userEmail;
+    return true;
+  }
+  return false;
 }

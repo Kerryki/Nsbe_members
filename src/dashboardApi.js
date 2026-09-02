@@ -3,6 +3,8 @@ import { deleteMember, updateMember, addEvent, getEvents, initializeEventsSheet 
 import { getAllMembers } from './googleSheets.js';
 import { verifyVP } from './dashboardAuth.js';
 import { logger } from './logger.js';
+import { validateMember, validateEvent } from './validation.js';
+import { toCSV } from './csvUtils.js';
 
 const router = express.Router();
 
@@ -11,6 +13,12 @@ router.use(verifyVP);
 
 /**
  * GET /dashboard/api/members - Get all members with optional search/filter
+ */
+/**
+ * GET /members - Get all members with optional search/filter
+ * Query params:
+ *   - search: filter by email or name
+ *   - status: filter by status (Active, Inactive, Pending)
  */
 router.get('/members', async (req, res) => {
   try {
@@ -36,21 +44,27 @@ router.get('/members', async (req, res) => {
 });
 
 /**
- * PUT /dashboard/api/members/:email - Update a member
+ * PUT /members/:email - Update a member
+ * Body: { name?, phone?, status? } - partial update allowed
  */
 router.put('/members/:email', async (req, res) => {
   try {
     const { name, phone, status } = req.body;
-    await updateMember(req.params.email, { name, phone, status });
+    // Validate update data
+    const validated = validateMember({ name, email: req.params.email, phone, status });
+    await updateMember(req.params.email, validated);
     res.json({ success: true });
   } catch (err) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
     logger.error('Failed to update member', err);
     res.status(500).json({ error: 'Failed to update member' });
   }
 });
 
 /**
- * DELETE /dashboard/api/members/:email - Delete a member
+ * DELETE /members/:email - Delete a member by email
  */
 router.delete('/members/:email', async (req, res) => {
   try {
@@ -63,7 +77,7 @@ router.delete('/members/:email', async (req, res) => {
 });
 
 /**
- * GET /dashboard/api/events - Get all events
+ * GET /events - Get all events
  */
 router.get('/events', async (req, res) => {
   try {
@@ -76,34 +90,34 @@ router.get('/events', async (req, res) => {
 });
 
 /**
- * POST /dashboard/api/events - Add an event
+ * POST /events - Add an event
+ * Body: { name, date (YYYY-MM-DD), description? }
  */
 router.post('/events', async (req, res) => {
   try {
     const { name, date, description } = req.body;
-    if (!name || !date) {
-      return res.status(400).json({ error: 'Name and date required' });
-    }
-    await addEvent({ name, date, description: description || '' });
+    // Validate event data
+    const validated = validateEvent({ name, date, description });
+    await addEvent(validated);
     res.json({ success: true });
   } catch (err) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
     logger.error('Failed to add event', err);
     res.status(500).json({ error: 'Failed to add event' });
   }
 });
 
 /**
- * GET /dashboard/api/export - Export members as CSV
+ * GET /export - Export all members as CSV file
  */
 router.get('/export', async (req, res) => {
   try {
     const members = await getAllMembers();
-    const csv = [
-      'Name,Email,Phone,Date Joined,Status',
-      ...members.map(m => `"${m.name}","${m.email}","${m.phone}","${m.dateJoined}","${m.status}"`)
-    ].join('\n');
+    const csv = toCSV(members, ['name', 'email', 'phone', 'dateJoined', 'status']);
 
-    res.set('Content-Type', 'text/csv');
+    res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', 'attachment; filename="members.csv"');
     res.send(csv);
   } catch (err) {
