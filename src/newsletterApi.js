@@ -54,11 +54,20 @@ router.post('/newsletters', verifyVP, async (req, res) => {
 
 /**
  * GET /jobs - Get all job postings, optionally filtered by tag
- * Query: ?tag=backend (optional)
+ * Query: ?tag=backend (optional, max 50 chars)
  */
 router.get('/jobs', async (req, res) => {
   try {
-    const { tag } = req.query;
+    let { tag } = req.query;
+
+    // Validate tag if provided
+    if (tag) {
+      tag = String(tag).trim();
+      if (tag.length === 0 || tag.length > 50) {
+        return res.status(400).json({ error: 'Invalid tag' });
+      }
+    }
+
     const jobs = await getJobPostings(tag);
     res.json(jobs);
   } catch (err) {

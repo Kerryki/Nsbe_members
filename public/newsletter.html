@@ -111,6 +111,13 @@
   <script>
     const API_BASE = '/newsletter';
 
+    /**
+     * Get today's date in YYYY-MM-DD format
+     */
+    function getTodayDate() {
+      return new Date().toISOString().split('T')[0];
+    }
+
     function switchTab(tab) {
       // Hide all tabs
       document.getElementById('newsletters').classList.remove('active');
@@ -136,11 +143,10 @@
     async function createNewsletter(e) {
       e.preventDefault();
       try {
-        const today = new Date().toISOString().split('T')[0];
         const data = {
           subject: document.getElementById('nlSubject').value,
           content: document.getElementById('nlContent').value,
-          sentDate: document.getElementById('nlDate').value || today,
+          sentDate: document.getElementById('nlDate').value || getTodayDate(),
         };
 
         const res = await fetch(`${API_BASE}/newsletters`, {
@@ -188,7 +194,9 @@
           dateEl.textContent = `Sent: ${nl.sentDate}`;
 
           const contentEl = document.createElement('p');
-          contentEl.textContent = nl.content;
+          // Truncate content to first 200 chars
+          const truncated = nl.content.length > 200 ? nl.content.substring(0, 200) + '...' : nl.content;
+          contentEl.textContent = truncated;
 
           const countEl = document.createElement('p');
           countEl.textContent = `Recipients: ${nl.recipientCount}`;
@@ -207,12 +215,11 @@
     async function createJob(e) {
       e.preventDefault();
       try {
-        const today = new Date().toISOString().split('T')[0];
         const data = {
           title: document.getElementById('jobTitle').value,
           description: document.getElementById('jobDesc').value,
           tags: document.getElementById('jobTags').value,
-          postedDate: document.getElementById('jobDate').value || today,
+          postedDate: document.getElementById('jobDate').value || getTodayDate(),
         };
 
         const res = await fetch(`${API_BASE}/jobs`, {
@@ -314,7 +321,7 @@
     window.onload = () => {
       loadNewsletters();
       // Set today's date as default
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDate();
       document.getElementById('nlDate').value = today;
       document.getElementById('jobDate').value = today;
     };
