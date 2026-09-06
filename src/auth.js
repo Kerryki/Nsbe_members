@@ -35,9 +35,11 @@ export function getAuthUrl() {
 export async function handleCallback(code) {
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
-  // ponytail: tokens stored in token.json for dev; production should use secure storage (e.g., encrypted env vars or secret manager)
   if (process.env.NODE_ENV !== 'production') {
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+  } else if (tokens.refresh_token) {
+    // Copy this value into GOOGLE_REFRESH_TOKEN on your host so auth survives restarts
+    console.log('GOOGLE_REFRESH_TOKEN=' + tokens.refresh_token);
   }
   return tokens;
 }
@@ -47,7 +49,9 @@ export async function handleCallback(code) {
  * @returns {Object} OAuth2 client
  */
 export function loadOrAuthenticateClient() {
-  if (fs.existsSync(TOKEN_PATH)) {
+  if (process.env.GOOGLE_REFRESH_TOKEN) {
+    oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+  } else if (fs.existsSync(TOKEN_PATH)) {
     const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
     oauth2Client.setCredentials(tokens);
   }

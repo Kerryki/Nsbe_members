@@ -104,3 +104,38 @@ All 4 phases delivered and security-reviewed:
 
 **Deployment Ready**: Code is production-ready with security best practices applied throughout.
 
+---
+
+## Deploy Phase 1: Signup Form — CLEAN ✓
+- **Files**: public/index.html (already existed and correct)
+- **Serves at**: `/` via express.static (index.html auto-served)
+- **POSTs to**: POST /api/members with {name, email, phone}
+
+## Deploy Phase 2: Production Auth Persistence — CLEAN ✓
+- **Files modified**: src/auth.js
+- `loadOrAuthenticateClient()`: reads `GOOGLE_REFRESH_TOKEN` env var first (prod), falls back to token.json (dev)
+- `handleCallback()`: in prod, logs `GOOGLE_REFRESH_TOKEN=<value>` to console so operator can copy it into host env vars
+- **Constraint**: Run `GET /auth` once on live URL after first deploy to trigger the log; then set GOOGLE_REFRESH_TOKEN in host env and redeploy
+
+## Deploy Phase 3: Host Configuration — ACTION REQUIRED
+- **Recommended host**: Render (free tier, always-on Node, built-in HTTPS)
+- **Required env vars**: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL (→ https://your-domain/auth/callback), SHEETS_ID, VP_EMAIL, ALLOWED_ORIGINS (→ https://your-domain), NODE_ENV=production, SESSION_SECRET (random string, not 'dev-secret-key'), GOOGLE_REFRESH_TOKEN (from Phase 2 step above)
+
+## Deploy Phase 4: Google OAuth Redirect URI — ACTION REQUIRED
+- In Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client → Authorized redirect URIs
+- Add: `https://your-domain/auth/callback`
+- OAuth rejects any redirect URL not on this list
+
+## Deploy Phase 5: First Deploy & Authorize — ACTION REQUIRED
+1. Push to Render (connect GitHub repo or use render.yaml)
+2. Confirm app boots (check logs for no startup errors)
+3. Visit `https://your-domain/auth` once — grants Sheets access, logs GOOGLE_REFRESH_TOKEN
+4. Copy that token value into host env var GOOGLE_REFRESH_TOKEN → redeploy
+
+## Deploy Phase 6: End-to-End Verification — CHECKLIST
+- [ ] Submit test entry via signup form → appears in Google Sheet
+- [ ] VP login via /dashboard → entry visible, editable, deletable
+- [ ] GET /newsletter → loads publicly without auth
+- [ ] GET /attendance → loads, VP can mark attendance
+- [ ] Cold restart test: restart the host → /api/members still writes to Sheet (confirms GOOGLE_REFRESH_TOKEN works)
+
