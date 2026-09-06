@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join the Club</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 480px; margin: 40px auto; background: white; border-radius: 8px; padding: 24px; }
+    h1 { color: #333; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; }
+    input[type="text"], input[type="email"], input[type="tel"] { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; font-family: inherit; }
+    button { padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0052a3; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    .error { color: #cc0000; padding: 12px; background: #ffe6e6; border-radius: 4px; margin-bottom: 16px; }
+    .success { color: #28a745; padding: 12px; background: #e8f5e9; border-radius: 4px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Join the Club</h1>
+    <div id="message"></div>
+    <form id="signupForm">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required maxlength="100">
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required maxlength="254">
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" name="phone" maxlength="20">
+      </div>
+      <button type="submit" id="submitBtn">Sign Up</button>
+    </form>
+  </div>
+  <script>
+    const form = document.getElementById('signupForm');
+    const msg = document.getElementById('message');
+    const btn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = '';
+      msg.className = '';
+      btn.disabled = true;
+      btn.textContent = 'Signing up…';
+
+      try {
+        const res = await fetch('/api/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('name').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            phone: document.getElementById('phone').value.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = 'You\'re signed up! Welcome to the club.';
+          msg.className = 'success';
+          form.reset();
+        } else {
+          msg.textContent = data.error || 'Sign up failed. Please try again.';
+          msg.className = 'error';
+        }
+      } catch {
+        msg.textContent = 'Network error. Please try again.';
+        msg.className = 'error';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign Up';
+      }
+    });
+  </script>
+</body>
+</html>
