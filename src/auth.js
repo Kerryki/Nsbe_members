@@ -23,7 +23,10 @@ const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_U
 export function getAuthUrl() {
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/spreadsheets'],
+    scope: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
   });
 }
 
@@ -35,13 +38,15 @@ export function getAuthUrl() {
 export async function handleCallback(code) {
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
+  const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+  const { data: profile } = await oauth2.userinfo.get();
   if (process.env.NODE_ENV !== 'production') {
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
   } else if (tokens.refresh_token) {
     // Copy this value into GOOGLE_REFRESH_TOKEN on your host so auth survives restarts
     console.log('GOOGLE_REFRESH_TOKEN=' + tokens.refresh_token);
   }
-  return tokens;
+  return { tokens, email: profile.email };
 }
 
 /**

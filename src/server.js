@@ -49,6 +49,14 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const PORT = process.env.PORT || 3000;
 
+async function initializeSheets() {
+  await initializeSheet();
+  await initializeEventsSheet();
+  await initializeAttendanceSheet();
+  await initializeNewsletterSheet();
+  await initializeJobsSheet();
+}
+
 // OAuth flow
 app.get('/auth', (req, res) => {
   res.redirect(getAuthUrl());
@@ -60,7 +68,12 @@ app.get('/auth/callback', async (req, res) => {
     return res.status(400).send('Missing authorization code');
   }
   try {
-    await handleCallback(code);
+    const { email } = await handleCallback(code);
+    if (!email || !setVPSession(req, email)) {
+      logger.warn(`OAuth user is not the configured VP: ${email || 'unknown'}`);
+      return res.status(403).send('Authorized Google account is not the configured VP.');
+    }
+    await initializeSheets();
     logger.info('OAuth callback successful');
     res.send('Authorization successful! You can close this window.');
   } catch (err) {
@@ -140,12 +153,12 @@ app.get('/health', (req, res) => {
 // Start server
 (async () => {
   try {
-    loadOrAuthenticateClient();
-    await initializeSheet();
-    await initializeEventsSheet();
-    await initializeAttendanceSheet();
-    await initializeNewsletterSheet();
-    await initializeJobsSheet();
+    const client = loadOrAuthenticateClient();
+    if (client.credentials.refresh_token || client.credentials.access_token) {
+      await initializeSheets();
+    } else {
+      logger.warn('Google authorization required: visit /auth to connect Sheets');
+    }
     app.listen(PORT, () => {
       logger.info(`Server running at http://localhost:${PORT}`);
       logger.info(`Authorize at http://localhost:${PORT}/auth`);
