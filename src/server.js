@@ -19,6 +19,9 @@ import { setVPSession } from './dashboardAuth.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 
 // Session middleware for dashboard auth
