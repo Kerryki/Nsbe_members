@@ -30,6 +30,7 @@
     .tab-buttons button.active { background: #0052a3; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .job-link { color: #0066cc; }
   </style>
 </head>
 <body>
@@ -88,8 +89,16 @@
             <input type="text" id="jobTags" placeholder="e.g., backend, frontend, senior">
           </div>
           <div class="form-group">
+            <label>Application Link</label>
+            <input type="url" id="jobLink" placeholder="https://example.com/apply" required>
+          </div>
+          <div class="form-group">
             <label>Date Posted</label>
-            <input type="date" id="jobDate" required>
+            <input type="text" id="jobDate" value="N/A" placeholder="YYYY-MM-DD or N/A" required>
+          </div>
+          <div class="form-group">
+            <label>Application Deadline</label>
+            <input type="text" id="jobDeadline" value="N/A" placeholder="YYYY-MM-DD or N/A" required>
           </div>
           <button type="submit">Post Job</button>
         </form>
@@ -97,6 +106,10 @@
 
       <div class="section">
         <h2>Job Postings</h2>
+        <div class="form-group">
+          <label>Filter by Position</label>
+          <input type="text" id="jobPositionFilter" placeholder="Enter position or title">
+        </div>
         <div class="form-group">
           <label>Filter by Tag (optional)</label>
           <input type="text" id="jobTagFilter" placeholder="Enter tag">
@@ -219,7 +232,9 @@
           title: document.getElementById('jobTitle').value,
           description: document.getElementById('jobDesc').value,
           tags: document.getElementById('jobTags').value,
-          postedDate: document.getElementById('jobDate').value || getTodayDate(),
+          link: document.getElementById('jobLink').value.trim(),
+          postedDate: document.getElementById('jobDate').value.trim() || 'N/A',
+          deadline: document.getElementById('jobDeadline').value.trim() || 'N/A',
         };
 
         const res = await fetch(`${API_BASE}/jobs`, {
@@ -230,13 +245,17 @@
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || 'Failed to post job');
+          const detail = err.details?.map(item => item.message).join(', ');
+          throw new Error(detail || err.error || 'Failed to post job');
         }
 
         showMessage('Job posted successfully', 'success');
         document.getElementById('jobTitle').value = '';
         document.getElementById('jobDesc').value = '';
         document.getElementById('jobTags').value = '';
+        document.getElementById('jobLink').value = '';
+        document.getElementById('jobDate').value = 'N/A';
+        document.getElementById('jobDeadline').value = 'N/A';
         loadJobs();
       } catch (err) {
         showMessage(`Error: ${err.message}`, 'error');
@@ -245,8 +264,10 @@
 
     async function filterJobs() {
       try {
+        const position = document.getElementById('jobPositionFilter').value;
         const tag = document.getElementById('jobTagFilter').value;
         const params = new URLSearchParams();
+        if (position) params.append('position', position);
         if (tag) params.append('tag', tag);
 
         const res = await fetch(`${API_BASE}/jobs?${params}`);
@@ -288,7 +309,7 @@
         titleEl.textContent = job.title;
 
         const dateEl = document.createElement('p');
-        dateEl.textContent = `Posted: ${job.postedDate}`;
+        dateEl.textContent = `Posted: ${job.postedDate} | Deadline: ${job.deadline || 'Not specified'}`;
 
         const descEl = document.createElement('p');
         descEl.textContent = job.description;
@@ -302,9 +323,17 @@
           tagsDiv.appendChild(tagEl);
         });
 
+        const linkEl = document.createElement('a');
+        linkEl.className = 'job-link';
+        linkEl.href = job.link;
+        linkEl.target = '_blank';
+        linkEl.rel = 'noopener noreferrer';
+        linkEl.textContent = 'Apply / View posting';
+
         card.appendChild(titleEl);
         card.appendChild(dateEl);
         card.appendChild(descEl);
+        if (job.link) card.appendChild(linkEl);
         if (job.tags.length > 0) card.appendChild(tagsDiv);
         container.appendChild(card);
       });
@@ -323,7 +352,8 @@
       // Set today's date as default
       const today = getTodayDate();
       document.getElementById('nlDate').value = today;
-      document.getElementById('jobDate').value = today;
+      document.getElementById('jobDate').value = 'N/A';
+      document.getElementById('jobDeadline').value = 'N/A';
     };
   </script>
 </body>

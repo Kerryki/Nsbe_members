@@ -6,6 +6,10 @@ import { logger } from './logger.js';
 import { z } from 'zod';
 
 const router = express.Router();
+const JobDateSchema = z.string().refine(
+  value => value === 'N/A' || /^\d{4}-\d{2}-\d{2}$/.test(value),
+  'Date must be YYYY-MM-DD or N/A',
+);
 
 const NewsletterSchema = z.object({
   subject: z.string().min(1, 'Subject required').max(255),
@@ -18,7 +22,9 @@ const JobSchema = z.object({
   title: z.string().min(1, 'Title required').max(255),
   description: z.string().min(1, 'Description required').max(2000),
   tags: z.string().max(500).optional().default(''),
-  postedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  link: z.string().url('Link must be a valid URL').max(2000),
+  postedDate: JobDateSchema.default('N/A'),
+  deadline: JobDateSchema.default('N/A'),
 });
 
 /**
@@ -53,22 +59,22 @@ router.post('/newsletters', verifyVP, async (req, res) => {
 });
 
 /**
- * GET /jobs - Get all job postings, optionally filtered by tag
- * Query: ?tag=backend (optional, max 50 chars)
+ * GET /jobs - Get all job postings, optionally filtered by position and tag
+ * Query: ?position=developer&tag=backend
  */
 router.get('/jobs', async (req, res) => {
   try {
-    let { tag } = req.query;
+    let { position, tag } = req.query;
 
-    // Validate tag if provided
-    if (tag) {
-      tag = String(tag).trim();
-      if (tag.length === 0 || tag.length > 50) {
-        return res.status(400).json({ error: 'Invalid tag' });
+    for (const value of [position, tag]) {
+      if (value !== undefined && (String(value).trim().length === 0 || String(value).length > 50)) {
+        return res.status(400).json({ error: 'Invalid job filter' });
       }
     }
 
-    const jobs = await getJobPostings(tag);
+    position = position ? String(position).trim() : '';
+    tag = tag ? String(tag).trim() : '';
+    const jobs = await getJobPostings(position, tag);
     res.json(jobs);
   } catch (err) {
     logger.error('Failed to fetch job postings', err);
@@ -78,7 +84,7 @@ router.get('/jobs', async (req, res) => {
 
 /**
  * POST /jobs - Add a job posting (VP only)
- * Body: { title, description, tags?, postedDate }
+ * Body: { title, description, tags?, link, postedDate, deadline }
  */
 router.post('/jobs', verifyVP, async (req, res) => {
   try {

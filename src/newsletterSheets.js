@@ -61,14 +61,14 @@ export async function getNewsletters() {
 
 /**
  * Add a job posting
- * @param {Object} data - { title, description, tags, postedDate }
+ * @param {Object} data - { title, description, tags, link, postedDate, deadline }
  */
 export async function addJobPosting(data) {
   try {
-    const values = [[data.title, data.description, data.tags || '', data.postedDate]];
+    const values = [[data.title, data.description, data.tags || '', data.link, data.postedDate, data.deadline]];
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: `${JOBS_SHEET}!A:D`,
+      range: `${JOBS_SHEET}!A:F`,
       valueInputOption: 'USER_ENTERED',
       resource: { values },
     });
@@ -80,30 +80,39 @@ export async function addJobPosting(data) {
 }
 
 /**
- * Get all job postings, optionally filtered by tag
+ * Get all job postings, optionally filtered by position and tag
+ * @param {string} position - Optional title/position filter
  * @param {string} tag - Optional tag filter
  * @returns {Promise<Array>}
  */
-export async function getJobPostings(tag) {
+export async function getJobPostings(position, tag) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${JOBS_SHEET}!A:D`,
+      range: `${JOBS_SHEET}!A:F`,
     });
 
     const rows = res.data.values || [];
     if (rows.length === 0) return [];
 
     const [header, ...records] = rows;
-    const jobs = records.map(row => ({
+    const isLegacySchema = header[3] === 'Posted Date';
+    let jobs = records.map(row => ({
       title: row[0] || '',
       description: row[1] || '',
       tags: (row[2] || '').split(',').map(t => t.trim()).filter(t => t),
-      postedDate: row[3] || '',
+      link: isLegacySchema ? '' : row[3] || '',
+      postedDate: isLegacySchema ? row[3] || '' : row[4] || '',
+      deadline: isLegacySchema ? '' : row[5] || '',
     }));
 
+    if (position) {
+      const normalizedPosition = position.toLowerCase();
+      jobs = jobs.filter(job => job.title.toLowerCase().includes(normalizedPosition));
+    }
     if (tag) {
-      return jobs.filter(j => j.tags.some(t => t.toLowerCase() === tag.toLowerCase()));
+      const normalizedTag = tag.toLowerCase();
+      return jobs.filter(job => job.tags.some(item => item.toLowerCase().includes(normalizedTag)));
     }
     return jobs;
   } catch (err) {
@@ -144,17 +153,41 @@ export async function initializeJobsSheet() {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${JOBS_SHEET}!A1:D1`,
+      range: `${JOBS_SHEET}!A:F`,
     });
 
-    if (!res.data.values || res.data.values.length === 0) {
+    const headers = ['Title', 'Description', 'Tags', 'Link', 'Posted Date', 'Deadline'];
+    const currentHeaders = res.data.values?.[0] || [];
+    const headersMatch = headers.every((header, index) => currentHeaders[index] === header)
+      && currentHeaders.length === headers.length;
+    const legacyHeaders = ['Title', 'Description', 'Tags', 'Posted Date'];
+    const isLegacySchema = legacyHeaders.every((header, index) => currentHeaders[index] === header)
+      && currentHeaders.length === legacyHeaders.length;
+
+    if (isLegacySchema) {
+      const migratedRows = (res.data.values || []).slice(1).map(row => [
+        row[0] || '',
+        row[1] || '',
+        row[2] || '',
+        '',
+        row[3] || 'N/A',
+        'N/A',
+      ]);
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
-        range: `${JOBS_SHEET}!A1:D1`,
+        range: `${JOBS_SHEET}!A1:F${migratedRows.length + 1}`,
         valueInputOption: 'USER_ENTERED',
-        resource: { values: [['Title', 'Description', 'Tags', 'Posted Date']] },
+        resource: { values: [headers, ...migratedRows] },
       });
-      logger.info('Jobs sheet initialized');
+      logger.info('Legacy jobs sheet migrated to the current schema');
+    } else if (!headersMatch) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${JOBS_SHEET}!A1:F1`,
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [headers] },
+      });
+      logger.info('Jobs sheet headers initialized or updated');
     }
   } catch (err) {
     logger.error('Failed to initialize jobs sheet', err);
