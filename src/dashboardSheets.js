@@ -145,6 +145,21 @@ export async function getEvents() {
  */
 export async function initializeEventsSheet() {
   try {
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: SHEET_ID,
+      fields: 'sheets.properties',
+    });
+    const eventsSheet = spreadsheet.data.sheets?.find(
+      sheet => sheet.properties?.title === EVENTS_SHEET,
+    );
+
+    if (!eventsSheet) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        resource: { requests: [{ addSheet: { properties: { title: EVENTS_SHEET } } }] },
+      });
+    }
+
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: `${EVENTS_SHEET}!A1:C1`,

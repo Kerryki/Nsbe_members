@@ -1,6 +1,7 @@
 import express from 'express';
-import { deleteMember, updateMember, addEvent, getEvents, initializeEventsSheet } from './dashboardSheets.js';
+import { deleteMember, updateMember, addEvent, getEvents } from './dashboardSheets.js';
 import { appendMember, getAllMembers } from './googleSheets.js';
+import { getClient } from './auth.js';
 import { verifyVP } from './dashboardAuth.js';
 import { logger } from './logger.js';
 import { validateMember, validateMemberUpdate, validateEvent } from './validation.js';
@@ -51,6 +52,11 @@ router.get('/members', async (req, res) => {
  */
 router.post('/members', async (req, res) => {
   try {
+    const client = getClient();
+    if (!client.credentials.access_token && !client.credentials.refresh_token) {
+      return res.status(503).json({ error: 'Google Sheets authorization required. Visit /auth first.' });
+    }
+
     const validated = validateMember({
       ...req.body,
       dateJoined: req.body.dateJoined || new Date().toISOString().split('T')[0],

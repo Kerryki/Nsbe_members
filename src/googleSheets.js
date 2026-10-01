@@ -46,8 +46,12 @@ export async function getAllMembers() {
     const rows = res.data.values || [];
     if (rows.length === 0) return [];
 
-    // Skip header row
-    const [header, ...members] = rows;
+    const firstRow = rows[0].map(value => String(value).trim().toLowerCase());
+    const hasHeaderRow = firstRow[0] === 'name'
+      && firstRow[1] === 'student id'
+      && firstRow[2] === 'email';
+    const members = hasHeaderRow ? rows.slice(1) : rows;
+
     return members.map(row => ({
       name: row[0] || '',
       studentId: row[1] || '',

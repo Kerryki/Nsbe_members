@@ -29,7 +29,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true, // Prevent JS access to cookie
-    sameSite: 'strict' // CSRF protection
+    sameSite: 'lax' // Allows the OAuth redirect to retain the session cookie
   }
 }));
 
@@ -73,7 +73,13 @@ app.get('/auth/callback', async (req, res) => {
     }
     await initializeSheets();
     logger.info('OAuth callback successful');
-    res.send('Authorization successful! You can close this window.');
+    req.session.save((saveError) => {
+      if (saveError) {
+        logger.error('Failed to save OAuth session', saveError);
+        return res.status(500).send('Authorization failed');
+      }
+      res.redirect('/dashboard');
+    });
   } catch (err) {
     logger.error('OAuth callback failed', err);
     res.status(500).send('Authorization failed');
