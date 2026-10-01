@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import session from 'express-session';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,8 +17,6 @@ import { initializeNewsletterSheet, initializeJobsSheet } from './newsletterShee
 import { setVPSession } from './dashboardAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config();
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
