@@ -58,8 +58,10 @@
         <thead>
           <tr>
             <th>Name</th>
+            <th>Student ID</th>
             <th>Email</th>
             <th>Phone</th>
+            <th>Major</th>
             <th>Date Joined</th>
             <th>Status</th>
             <th>Actions</th>
@@ -98,12 +100,20 @@
           <input type="text" id="memberName" required>
         </div>
         <div class="form-group">
+          <label>Student ID</label>
+          <input type="text" id="memberStudentId" required maxlength="50">
+        </div>
+        <div class="form-group">
           <label>Email</label>
           <input type="email" id="memberEmail" required>
         </div>
         <div class="form-group">
           <label>Phone</label>
           <input type="text" id="memberPhone">
+        </div>
+        <div class="form-group">
+          <label>Major</label>
+          <input type="text" id="memberMajor" required maxlength="255">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -167,20 +177,21 @@
 
         members.forEach(m => {
           const row = document.createElement('tr');
-          row.innerHTML = `<td></td><td></td><td></td><td></td><td></td><td></td>`;
+          row.innerHTML = `<td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;
 
           const cells = row.querySelectorAll('td');
           cells[0].textContent = m.name;
-          cells[1].textContent = m.email;
-          cells[2].textContent = m.phone || '-';
-          cells[3].textContent = m.dateJoined;
-          cells[4].textContent = m.status;
+          cells[1].textContent = m.studentId || '-';
+          cells[2].textContent = m.email;
+          cells[3].textContent = m.phone || '-';
+          cells[4].textContent = m.major || '-';
+          cells[5].textContent = m.dateJoined;
 
-          const actionCell = cells[5];
+          const actionCell = cells[6];
           actionCell.innerHTML = '';
           const editBtn = document.createElement('button');
           editBtn.textContent = 'Edit';
-          editBtn.onclick = () => editMember(m.email);
+          editBtn.onclick = () => editMember(m);
           const deleteBtn = document.createElement('button');
           deleteBtn.className = 'danger';
           deleteBtn.textContent = 'Delete';
@@ -231,8 +242,11 @@
       editingEmail = null;
       document.getElementById('memberModalTitle').textContent = 'Add Member';
       document.getElementById('memberName').value = '';
+      document.getElementById('memberStudentId').value = '';
       document.getElementById('memberEmail').value = '';
+      document.getElementById('memberEmail').disabled = false;
       document.getElementById('memberPhone').value = '';
+      document.getElementById('memberMajor').value = '';
       document.getElementById('memberStatus').value = 'Active';
       document.getElementById('memberModal').classList.add('open');
     }
@@ -241,10 +255,15 @@
       document.getElementById('memberModal').classList.remove('open');
     }
 
-    async function editMember(email) {
-      editingEmail = email;
+    async function editMember(member) {
+      editingEmail = member.email;
       document.getElementById('memberModalTitle').textContent = 'Edit Member';
-      document.getElementById('memberEmail').value = email;
+      document.getElementById('memberName').value = member.name || '';
+      document.getElementById('memberStudentId').value = member.studentId || '';
+      document.getElementById('memberEmail').value = member.email;
+      document.getElementById('memberPhone').value = member.phone || '';
+      document.getElementById('memberMajor').value = member.major || '';
+      document.getElementById('memberStatus').value = member.status || 'Active';
       document.getElementById('memberEmail').disabled = true;
       document.getElementById('memberModal').classList.add('open');
     }
@@ -254,18 +273,22 @@
       try {
         const data = {
           name: document.getElementById('memberName').value,
+          studentId: document.getElementById('memberStudentId').value,
           phone: document.getElementById('memberPhone').value,
+          major: document.getElementById('memberMajor').value,
           status: document.getElementById('memberStatus').value,
         };
 
-        if (editingEmail) {
-          const res = await fetch(`${API_BASE}/members/${editingEmail}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          if (!res.ok) throw new Error('Failed to update member');
-        }
+        const endpoint = editingEmail ? `${API_BASE}/members/${editingEmail}` : `${API_BASE}/members`;
+        const res = await fetch(endpoint, {
+          method: editingEmail ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...data,
+            email: document.getElementById('memberEmail').value,
+          })
+        });
+        if (!res.ok) throw new Error(editingEmail ? 'Failed to update member' : 'Failed to add member');
 
         showMessage('Member saved successfully', 'success');
         closeMemberModal();

@@ -1,9 +1,9 @@
 import express from 'express';
 import { deleteMember, updateMember, addEvent, getEvents, initializeEventsSheet } from './dashboardSheets.js';
-import { getAllMembers } from './googleSheets.js';
+import { appendMember, getAllMembers } from './googleSheets.js';
 import { verifyVP } from './dashboardAuth.js';
 import { logger } from './logger.js';
-import { validateMember, validateEvent } from './validation.js';
+import { validateMember, validateMemberUpdate, validateEvent } from './validation.js';
 import { toCSV } from './csvUtils.js';
 
 const router = express.Router();
@@ -17,7 +17,7 @@ router.use(verifyVP);
 /**
  * GET /members - Get all members with optional search/filter
  * Query params:
- *   - search: filter by email or name
+ *   - search: filter by email, name, student ID, or major
  *   - status: filter by status (Active, Inactive, Pending)
  */
 router.get('/members', async (req, res) => {
@@ -28,7 +28,10 @@ router.get('/members', async (req, res) => {
     if (search) {
       const s = search.toLowerCase();
       members = members.filter(m =>
-        m.email.toLowerCase().includes(s) || m.name.toLowerCase().includes(s)
+        m.email.toLowerCase().includes(s) ||
+        m.name.toLowerCase().includes(s) ||
+        m.studentId.toLowerCase().includes(s) ||
+        m.major.toLowerCase().includes(s)
       );
     }
 
@@ -44,14 +47,41 @@ router.get('/members', async (req, res) => {
 });
 
 /**
+ * POST /members - Add a member from the dashboard
+ */
+router.post('/members', async (req, res) => {
+  try {
+    const validated = validateMember({
+      ...req.body,
+      dateJoined: req.body.dateJoined || new Date().toISOString().split('T')[0],
+    });
+    await appendMember(validated);
+    res.json({ success: true });
+  } catch (err) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
+    logger.error('Failed to add member from dashboard', err);
+    res.status(500).json({ error: 'Failed to add member' });
+  }
+});
+
+/**
  * PUT /members/:email - Update a member
- * Body: { name?, phone?, status? } - partial update allowed
+ * Body: { name?, studentId?, phone?, major?, status? } - partial update allowed
  */
 router.put('/members/:email', async (req, res) => {
   try {
-    const { name, phone, status } = req.body;
+    const { name, studentId, phone, major, status } = req.body;
     // Validate update data
-    const validated = validateMember({ name, email: req.params.email, phone, status });
+    const validated = validateMemberUpdate({
+      name,
+      studentId,
+      email: req.params.email,
+      phone,
+      major,
+      status,
+    });
     await updateMember(req.params.email, validated);
     res.json({ success: true });
   } catch (err) {
@@ -115,7 +145,7 @@ router.post('/events', async (req, res) => {
 router.get('/export', async (req, res) => {
   try {
     const members = await getAllMembers();
-    const csv = toCSV(members, ['name', 'email', 'phone', 'dateJoined', 'status']);
+    const csv = toCSV(members, ['name', 'studentId', 'email', 'phone', 'major', 'dateJoined', 'status']);
 
     res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', 'attachment; filename="members.csv"');

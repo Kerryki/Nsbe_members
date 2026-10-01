@@ -20,13 +20,13 @@ export async function deleteMember(email) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${MEMBERS_SHEET}!A:E`,
+      range: `${MEMBERS_SHEET}!A:G`,
     });
 
     const rows = res.data.values || [];
     if (rows.length === 0) throw new Error('No members found');
 
-    const targetIndex = rows.findIndex(row => (row[1] || '').toLowerCase() === email.toLowerCase());
+    const targetIndex = rows.findIndex(row => (row[2] || '').toLowerCase() === email.toLowerCase());
     if (targetIndex === -1) throw new Error('Member not found');
 
     // Delete row via batchUpdate
@@ -55,33 +55,35 @@ export async function deleteMember(email) {
 /**
  * Update a member by email
  * @param {string} email
- * @param {Object} data - { name, phone, status }
+ * @param {Object} data - { name, studentId, phone, major, status }
  */
 export async function updateMember(email, data) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${MEMBERS_SHEET}!A:E`,
+      range: `${MEMBERS_SHEET}!A:G`,
     });
 
     const rows = res.data.values || [];
     if (rows.length === 0) throw new Error('No members found');
 
-    const targetIndex = rows.findIndex(row => (row[1] || '').toLowerCase() === email.toLowerCase());
+    const targetIndex = rows.findIndex(row => (row[2] || '').toLowerCase() === email.toLowerCase());
     if (targetIndex === -1) throw new Error('Member not found');
 
     const currentRow = rows[targetIndex];
     const updatedRow = [
       data.name || currentRow[0],
+      data.studentId !== undefined ? data.studentId : currentRow[1] || '',
       email,
-      data.phone !== undefined ? data.phone : currentRow[2],
-      currentRow[3], // dateJoined unchanged
-      data.status || currentRow[4],
+      data.phone !== undefined ? data.phone : currentRow[3] || '',
+      data.major !== undefined ? data.major : currentRow[4] || '',
+      currentRow[5] || '', // dateJoined unchanged
+      data.status || currentRow[6] || 'Active',
     ];
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID,
-      range: `${MEMBERS_SHEET}!A${targetIndex + 1}:E${targetIndex + 1}`,
+      range: `${MEMBERS_SHEET}!A${targetIndex + 1}:G${targetIndex + 1}`,
       valueInputOption: 'USER_ENTERED',
       resource: { values: [updatedRow] },
     });

@@ -36,12 +36,20 @@
         <input type="text" id="name" name="name" required maxlength="100">
       </div>
       <div class="form-group">
+        <label for="studentId">Student ID</label>
+        <input type="text" id="studentId" name="studentId" required maxlength="50">
+      </div>
+      <div class="form-group">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" required maxlength="254">
       </div>
       <div class="form-group">
         <label for="phone">Phone</label>
         <input type="tel" id="phone" name="phone" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label for="major">Major</label>
+        <input type="text" id="major" name="major" required maxlength="255">
       </div>
       <button type="submit" id="submitBtn">Sign Up</button>
     </form>
@@ -64,8 +72,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: document.getElementById('name').value.trim(),
+            studentId: document.getElementById('studentId').value.trim(),
             email: document.getElementById('email').value.trim(),
             phone: document.getElementById('phone').value.trim(),
+            major: document.getElementById('major').value.trim(),
           }),
         });
         const data = await res.json();

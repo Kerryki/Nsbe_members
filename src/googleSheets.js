@@ -13,15 +13,15 @@ const sheets = google.sheets({ version: 'v4', auth: getClient() });
 
 /**
  * Append a member to the sheet
- * @param {Object} data - { name, email, phone, dateJoined, status }
+ * @param {Object} data - { name, studentId, email, phone, major, dateJoined, status }
  * @throws {Error} If append fails
  */
 export async function appendMember(data) {
   try {
-    const values = [[data.name, data.email, data.phone, data.dateJoined, data.status]];
+    const values = [[data.name, data.studentId, data.email, data.phone, data.major, data.dateJoined, data.status]];
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:E`,
+      range: `${SHEET_NAME}!A:G`,
       valueInputOption: 'USER_ENTERED',
       resource: { values },
     });
@@ -40,7 +40,7 @@ export async function getAllMembers() {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:E`,
+      range: `${SHEET_NAME}!A:G`,
     });
 
     const rows = res.data.values || [];
@@ -50,10 +50,12 @@ export async function getAllMembers() {
     const [header, ...members] = rows;
     return members.map(row => ({
       name: row[0] || '',
-      email: row[1] || '',
-      phone: row[2] || '',
-      dateJoined: row[3] || '',
-      status: row[4] || '',
+      studentId: row[1] || '',
+      email: row[2] || '',
+      phone: row[3] || '',
+      major: row[4] || '',
+      dateJoined: row[5] || '',
+      status: row[6] || '',
     }));
   } catch (err) {
     logger.error('Failed to fetch all members', err);
@@ -76,19 +78,24 @@ export async function getMemberByEmail(email) {
  */
 export async function initializeSheet() {
   try {
+    const headers = ['Name', 'Student ID', 'Email', 'Phone', 'Major', 'Date Joined', 'Status'];
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A1:E1`,
+      range: `${SHEET_NAME}!A1:G1`,
     });
 
-    if (!res.data.values || res.data.values.length === 0) {
+    const currentHeaders = res.data.values?.[0] || [];
+    const isCurrentHeaders = headers.every((header, index) => currentHeaders[index] === header)
+      && currentHeaders.length === headers.length;
+
+    if (!isCurrentHeaders) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A1:E1`,
+        range: `${SHEET_NAME}!A1:G1`,
         valueInputOption: 'USER_ENTERED',
-        resource: { values: [['Name', 'Email', 'Phone', 'Date Joined', 'Status']] },
+        resource: { values: [headers] },
       });
-      logger.info('Sheet initialized with headers');
+      logger.info('Sheet headers initialized or updated');
     }
   } catch (err) {
     logger.error('Failed to initialize sheet', err);
